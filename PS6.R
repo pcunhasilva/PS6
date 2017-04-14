@@ -15,7 +15,7 @@ library(microbenchmark)
 ############ Do parallel and increase Dimensionality Function ##############
 ############################################################################
 
-sg.int<-function(g,...,lower, upper, inParallel = FALSE, cores = 4){
+sg.int <- function(g,...,lower, upper, inParallel = FALSE, cores = 4){
    
    require("SparseGrid") # Load the Sparse Grid Library
    require("plyr") # call the package plyr to use parallel aaply
@@ -60,17 +60,25 @@ sg.int<-function(g,...,lower, upper, inParallel = FALSE, cores = 4){
 ######################################
 
 # Generate functions to use in the tests
-fn1 <- function(x){
+# Two Dimensions
+testfn1 <- function(x){
    x[1]^4 + 2*x[2]
 }
-
-fn2 <- function(x){
+# Three Dimensions
+testfn2 <- function(x){
    x[1]^4 + 2*x[2] + x[3]^2
 }
-
-fn3 <- function(x){
+# Four Dimensions
+testfn3 <- function(x){
    x[1]^4 + 2*x[2] + x[3]^2 + x[2]^5
 }
+# Function to test accuracy (One Dimension)
+testfn4 <- function(x){
+   (.7*dchisq(x, df = 4)+.3*dchisq(x, df = 6))
+}
+# Answer to testfn4 (Integration from 4 to 10)
+ans_testfn4 <- .7*(pchisq(10, df = 4)-pchisq(4, df = 4))+
+   .3*(pchisq(10, df = 6)-pchisq(4, df = 6))
 
 ######################################
 ############ Unit tests ### ##########
@@ -78,19 +86,51 @@ fn3 <- function(x){
 
 # Evaluate that the area of the curve has to be always positive
 test_that("Area is always positive",
-          expect_gte(sg.int(fn1, lower = c(0, 0), upper = c(2, 2)), 0))
+          expect_gte(sg.int(testfn1, lower = c(0, 0), upper = c(2, 2)), 0))
 # Evaluate that sg.int.hi.dim should produce a similar result to adaptIntegrate
 test_that("Produce a similar approximation", 
-          expect_equal(as.vector(sg.int(fn2, lower = c(0, 0, 0), upper = c(5, 5, 5))),
-          adaptIntegrate(fn2, lowerLimit = c(0, 0, 0), upperLimit = c(5, 5, 5))$integral))
+          expect_equal(as.vector(sg.int(testfn2, lower = c(0, 0, 0), upper = c(5, 5, 5))),
+          adaptIntegrate(testfn2, lowerLimit = c(0, 0, 0), upperLimit = c(5, 5, 5))$integral))
 # Evaluate that sg.int.hi.dim produces a vector (the test has to fail)
 test_that("Is a vector",
-          expect_is(sg.int(fn1, lower = c(2, 3), upper = c(3, 5)), "numeric"))
+          expect_is(sg.int(testfn1, lower = c(0, 0), upper = c(5, 5)), "numeric"))
+
+
+#################################
+######### Compare Speed #########
+#################################
+
+# Compare speed of integration of a function with two dimensions from 0 to 5
+microbenchmark(
+   "sg.int: No parallel Two Dim" = sg.int(testfn1, lower = c(0, 0), upper = c(5, 5)),
+   "sg.int: Parallel Two Dim." = sg.int(testfn1, lower = c(0, 0), upper = c(5, 5), inParallel = TRUE),
+   "adaptIntegrate Two Dim." = adaptIntegrate(testfn1, lowerLimit = c(0, 0), upperLimit = c(5, 5)),
+   times = 100L
+)
+
+# Compare speed of integration of a function with Three dimensions from 0 to 5
+microbenchmark(
+   "sg.int: No parallel Three Dim" = sg.int(testfn2, lower = c(0, 0, 0), upper = c(5, 5, 5)),
+   "sg.int: Parallel Three Dim." = sg.int(testfn2, lower = c(0, 0, 0), upper = c(5, 5, 5), inParallel = TRUE),
+   "adaptIntegrate Three Dim." = adaptIntegrate(testfn2, lowerLimit = c(0, 0, 0), upperLimit = c(5, 5, 5)),
+   times = 100L
+)
+
+# Compare speed of integration of a function with Four dimensions from 0 to 3
+microbenchmark(
+   "sg.int: No parallel Four Dim" = sg.int(testfn3, lower = c(0, 0, 0, 0), upper = c(8, 8, 8, 8)),
+   "sg.int: Parallel Four Dim." = sg.int(testfn3, lower = c(0, 0, 0, 0), upper = c(8, 8, 8, 8), 
+                                          inParallel = TRUE),
+   "adaptIntegrate Four Dim." = adaptIntegrate(testfn3, lowerLimit = c(0, 0, 0, 0), 
+                                                upperLimit = c(8, 8, 8, 8)),
+   times = 100L
+)
 
 #####################################
-############ Measure Speed ##########
+######### Compare Precision #########
 #####################################
 
-# Compare the sg.int.hi.dim with the adaptIntegrate (Precision test)
-#sg.int.hi.dim(fn2, lower = c(0, 0, 0), upper = c(5, 5, 5)) - 
-#   adaptIntegrate(fn2, lowerLimit = c(0, 0, 0), upperLimit = c(5, 5, 5))$integral
+# Compare accuracy of sg.int with the adaptIntegrate
+sg.int(testfn4, lower = c(4), upper = c(10)) - ans_testfn4
+adaptIntegrate(testfn4, lowerLimit = c(4), upperLimit = c(10))$integral - ans_testfn4 # More accurate.
+
