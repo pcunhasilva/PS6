@@ -102,26 +102,45 @@ test_that("Is a vector",
 
 # Compare speed of integration of a function with two dimensions from 0 to 5
 microbenchmark(
-   "sg.int: No parallel Two Dim" = sg.int(testfn1, lower = c(0, 0), upper = c(5, 5)),
-   "sg.int: Parallel Two Dim." = sg.int(testfn1, lower = c(0, 0), upper = c(5, 5), inParallel = TRUE),
-   "adaptIntegrate Two Dim." = adaptIntegrate(testfn1, lowerLimit = c(0, 0), upperLimit = c(5, 5)),
+   "sg.int: No parallel Two Dim" = sg.int(testfn1,
+                                          lower = c(0, 0), 
+                                          upper = c(5, 5)),
+   "sg.int: Parallel Two Dim." = sg.int(testfn1, 
+                                        lower = c(0, 0), 
+                                        upper = c(5, 5), 
+                                        inParallel = TRUE),
+   "adaptIntegrate Two Dim." = adaptIntegrate(testfn1, 
+                                              lowerLimit = c(0, 0), 
+                                              upperLimit = c(5, 5)),
    times = 100L
 )
 
 # Compare speed of integration of a function with Three dimensions from 0 to 5
 microbenchmark(
-   "sg.int: No parallel Three Dim" = sg.int(testfn2, lower = c(0, 0, 0), upper = c(5, 5, 5)),
-   "sg.int: Parallel Three Dim." = sg.int(testfn2, lower = c(0, 0, 0), upper = c(5, 5, 5), inParallel = TRUE),
-   "adaptIntegrate Three Dim." = adaptIntegrate(testfn2, lowerLimit = c(0, 0, 0), upperLimit = c(5, 5, 5)),
+   "sg.int: No parallel Three Dim" = sg.int(testfn2, 
+                                            lower = c(0, 0, 0), 
+                                            upper = c(5, 5, 5)),
+   "sg.int: Parallel Three Dim." = sg.int(testfn2, 
+                                          lower = c(0, 0, 0), 
+                                          upper = c(5, 5, 5), 
+                                          inParallel = TRUE),
+   "adaptIntegrate Three Dim." = adaptIntegrate(testfn2, 
+                                                lowerLimit = c(0, 0, 0), 
+                                                upperLimit = c(5, 5, 5)),
    times = 100L
 )
 
 # Compare speed of integration of a function with Four dimensions from 0 to 3
 microbenchmark(
-   "sg.int: No parallel Four Dim" = sg.int(testfn3, lower = c(0, 0, 0, 0), upper = c(8, 8, 8, 8)),
-   "sg.int: Parallel Four Dim." = sg.int(testfn3, lower = c(0, 0, 0, 0), upper = c(8, 8, 8, 8), 
+   "sg.int: No parallel Four Dim" = sg.int(testfn3, 
+                                           lower = c(0, 0, 0, 0), 
+                                           upper = c(8, 8, 8, 8)),
+   "sg.int: Parallel Four Dim." = sg.int(testfn3, 
+                                         lower = c(0, 0, 0, 0), 
+                                         upper = c(8, 8, 8, 8), 
                                           inParallel = TRUE),
-   "adaptIntegrate Four Dim." = adaptIntegrate(testfn3, lowerLimit = c(0, 0, 0, 0), 
+   "adaptIntegrate Four Dim." = adaptIntegrate(testfn3, 
+                                               lowerLimit = c(0, 0, 0, 0), 
                                                 upperLimit = c(8, 8, 8, 8)),
    times = 100L
 )
@@ -132,5 +151,48 @@ microbenchmark(
 
 # Compare accuracy of sg.int with the adaptIntegrate
 sg.int(testfn4, lower = c(4), upper = c(10)) - ans_testfn4
-adaptIntegrate(testfn4, lowerLimit = c(4), upperLimit = c(10))$integral - ans_testfn4 # More accurate.
+adaptIntegrate(testfn4, lowerLimit = c(4), upperLimit = 
+                  c(10))$integral - ans_testfn4 # More accurate.
 
+################################
+######### Optmization  #########
+################################
+
+# Generate the function
+f_op <- function(x) {
+   sin((x[1]^2)/2 - (x[1]^2)/4) * cos((2*x[1])-exp(x[1]))
+}
+
+# The Defaulf of optim is to minimize the function. 
+# to maximize, control$fnscale must be negative.
+maxfunc <- optim(par = c(2, 1), fn = f_op, lower = c(-1, 1), upper = c(3, 3), 
+      method = "L-BFGS-B", control = list(fnscale = -1))
+
+# Show the pair (x, y) that maximize the function:
+maxfunc$par
+
+# Show the value of the function at x and y values that maximize the function:
+maxfunc$value
+
+# Generate a function that may take two arguments to use in optimize,
+f_op2 <- function(x, y) {
+   sin((x^2)/2 - (y^2)/4) * cos((2*x)-exp(y))
+}
+
+# Calculate f(x, y)
+objective <- unlist(lapply(seq(-1, 3, by = 0.01), function(j) optimize(f = f_op2, y = j, 
+                                                             lower = -1, upper = 3, 
+                                                             maximum = TRUE)$objective))
+
+# Find the value of f(x, y) at the maximum of the function in the interval
+objective[which.max(objective)]
+
+# Calculate the maximum for the function
+maximum <- unlist(lapply(seq(-1, 3, by = 0.01), function(j) optimize(f = f_op2, y = j, 
+                                                                     lower = -1, upper = 3, 
+                                                                     maximum = TRUE)$maximum))
+# Find the maximum of the function
+maximum[which.max(maximum)]
+
+# Show the values of x and y for max of f(x, y)
+paste("y =", seq(-1, 3, by = 0.01)[which.max(maximum)], "x =", round(maximum[which.max(maximum)], 2))
